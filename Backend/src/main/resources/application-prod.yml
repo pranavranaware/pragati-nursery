@@ -1,0 +1,8 @@
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+app:
+  cookie:
+    secure: ${COOKIE_SECURE:true}

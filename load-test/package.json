@@ -1,0 +1,9 @@
+{
+  "name": "pragati-nursery-load-test",
+  "version": "1.0.0",
+  "description": "Controlled performance and load test scripts",
+  "main": "run-test.js",
+  "dependencies": {
+    "autocannon": "^7.15.0"
+  }
+}

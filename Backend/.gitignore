@@ -1,0 +1,26 @@
+# Compiled class files
+target/
+*.class
+
+# Log files
+logs/
+*.log
+
+# Environment & Secret files
+.env
+*.env.local
+
+# IDE & Editor files
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+.vscode/
+
+# Local Upload Storage
+backend-uploads/
+
+# OS specific files
+.DS_Store
+Thumbs.db

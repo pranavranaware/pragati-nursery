@@ -1,0 +1,3 @@
+import { AdminLayout } from '@/components/admin'
+import { ProductForm } from '@/components/admin-product-form'
+export default async function NewProductPage({ searchParams }: { searchParams: Promise<{ category?: string; returnTo?: string }> }) { const { category, returnTo } = await searchParams; const initialCategory = category ? category.replaceAll('-', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()) : undefined; return <AdminLayout title="Add Product" subtitle="Create a new plant listing for your customer storefront."><ProductForm initialCategory={initialCategory} returnTo={returnTo || '/admin/products'} /></AdminLayout> }

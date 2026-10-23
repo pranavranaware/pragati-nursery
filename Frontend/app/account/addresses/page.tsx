@@ -1,0 +1,2 @@
+import Link from 'next/link'
+export default function AccountAddresses() { return <main className="min-h-screen bg-background px-5 py-16"><div className="mx-auto max-w-2xl"><Link href="/" className="text-sm text-primary">← Back to Home</Link><h1 className="mt-8 font-serif text-4xl">Saved addresses</h1><p className="mt-3 text-muted-foreground">Save delivery addresses here when customer authentication is connected.</p></div></main> }
