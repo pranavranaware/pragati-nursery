@@ -90,6 +90,13 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- Cloudinary (image and video storage) -->
+        <dependency>
+            <groupId>com.cloudinary</groupId>
+            <artifactId>cloudinary-http45</artifactId>
+            <version>1.39.0</version>
+        </dependency>
+
         <!-- Razorpay Java SDK -->
         <dependency>
             <groupId>com.razorpay</groupId>

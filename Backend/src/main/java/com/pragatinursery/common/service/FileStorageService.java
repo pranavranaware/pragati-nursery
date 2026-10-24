@@ -1,24 +1,36 @@
 package com.pragatinursery.common.service;
 
+import com.cloudinary.Cloudinary;
+import com.cloudinary.utils.ObjectUtils;
 import com.pragatinursery.common.exception.BadRequestException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.*;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.Map;
 
 @Service
 public class FileStorageService {
 
     private static final long MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB limit
 
-    @Value("${app.upload.dir:./backend-uploads}")
-    private String uploadDir;
+    private final Cloudinary cloudinary;
+
+    public FileStorageService(
+            @Value("${CLOUDINARY_CLOUD_NAME:}") String cloudName,
+            @Value("${CLOUDINARY_API_KEY:}") String apiKey,
+            @Value("${CLOUDINARY_API_SECRET:}") String apiSecret) {
+        if (cloudName.isBlank() || apiKey.isBlank() || apiSecret.isBlank()) {
+            this.cloudinary = null; // app still starts; uploads report a clear error
+        } else {
+            this.cloudinary = new Cloudinary(ObjectUtils.asMap(
+                    "cloud_name", cloudName,
+                    "api_key", apiKey,
+                    "api_secret", apiSecret,
+                    "secure", true));
+        }
+    }
 
     public String storeFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {
@@ -34,29 +46,17 @@ public class FileStorageService {
             throw new BadRequestException("Only image and video files are allowed.");
         }
 
-        String originalFilename = StringUtils.cleanPath(Objects.requireNonNull(file.getOriginalFilename()));
-        String fileExtension = "";
-        int dotIndex = originalFilename.lastIndexOf('.');
-        if (dotIndex >= 0) {
-            fileExtension = originalFilename.substring(dotIndex);
+        if (cloudinary == null) {
+            throw new BadRequestException("Image storage is not configured.");
         }
 
-        String storedFilename = UUID.randomUUID().toString() + fileExtension;
-
         try {
-            Path uploadPath = Paths.get(uploadDir).toAbsolutePath().normalize();
-            if (!Files.exists(uploadPath)) {
-                Files.createDirectories(uploadPath);
-            }
-
-            Path targetLocation = uploadPath.resolve(storedFilename);
-            try (InputStream inputStream = file.getInputStream()) {
-                Files.copy(inputStream, targetLocation, StandardCopyOption.REPLACE_EXISTING);
-            }
-
-            return "/uploads/" + storedFilename;
+            Map<?, ?> result = cloudinary.uploader().upload(
+                    file.getBytes(),
+                    ObjectUtils.asMap("resource_type", "auto", "folder", "pragati"));
+            return (String) result.get("secure_url");
         } catch (IOException ex) {
-            throw new BadRequestException("Could not store file " + originalFilename + ". Please try again!");
+            throw new BadRequestException("Could not upload file. Please try again!");
         }
     }
 }
