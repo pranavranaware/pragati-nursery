@@ -34,7 +34,54 @@ export default function CategoriesPage() {
   const [saving, setSaving] = useState(false)
   const [uploadingImage, setUploadingImage] = useState(false)
 
-  const handleCategoryImageFileSelect = async (file: File) => {
+  // Staged local file and preview URL (used for on-screen preview only, never saved as blob:)
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string>('')
+
+  const revokePreviewIfBlob = (url?: string) => {
+    if (url?.startsWith('blob:')) {
+      try {
+        URL.revokeObjectURL(url)
+      } catch {}
+    }
+  }
+
+  const handleOpenAddCategory = () => {
+    revokePreviewIfBlob(imagePreview)
+    setImagePreview('')
+    setImageFile(null)
+    setError(null)
+    setDraft({ ...blank })
+  }
+
+  const handleOpenEditCategory = (category: AdminCategory) => {
+    revokePreviewIfBlob(imagePreview)
+    setImageFile(null)
+    setImagePreview(category.image || '')
+    setError(null)
+    setDraft({
+      id: category.id,
+      nameEn: category.nameEn || category.name || '',
+      nameMr: category.nameMr || '',
+      name: category.name || category.nameEn || '',
+      slug: category.slug,
+      descriptionEn: category.descriptionEn || category.description || '',
+      descriptionMr: category.descriptionMr || '',
+      description: category.description || category.descriptionEn || '',
+      image: category.image || '',
+      status: category.status,
+      productCount: category.productCount,
+    })
+  }
+
+  const closeDraftModal = () => {
+    revokePreviewIfBlob(imagePreview)
+    setImagePreview('')
+    setImageFile(null)
+    setDraft(null)
+  }
+
+  const handleCategoryImageFileSelect = (file: File) => {
     if (!file.type.startsWith('image/')) {
       setError('Only image files (.jpg, .png, .webp) are allowed.')
       return
@@ -45,26 +92,17 @@ export default function CategoriesPage() {
       return
     }
 
+    setError(null)
+    revokePreviewIfBlob(imagePreview)
     const localPreviewUrl = URL.createObjectURL(file)
-    setDraft((prev) => (prev ? { ...prev, image: localPreviewUrl } : null))
-
-    try {
-      setError(null)
-      setUploadingImage(true)
-      const uploadedUrl = await adminApi.uploadMediaFile(file)
-      try { URL.revokeObjectURL(localPreviewUrl) } catch {}
-      setDraft((prev) => (prev ? { ...prev, image: uploadedUrl } : null))
-    } catch (err: any) {
-      setError(err.message || 'Failed to upload category image.')
-    } finally {
-      setUploadingImage(false)
-    }
+    setImagePreview(localPreviewUrl)
+    setImageFile(file)
   }
 
   const handleClearImage = () => {
-    if (draft?.image?.startsWith('blob:')) {
-      try { URL.revokeObjectURL(draft.image) } catch {}
-    }
+    revokePreviewIfBlob(imagePreview)
+    setImagePreview('')
+    setImageFile(null)
     setDraft((prev) => (prev ? { ...prev, image: '' } : null))
   }
 
@@ -125,6 +163,33 @@ export default function CategoriesPage() {
 
     setSaving(true)
     setError(null)
+
+    let finalImageUrl = (draft.image || '').trim()
+
+    // 1. If an image file was selected, upload it first to the backend endpoint
+    if (imageFile) {
+      setUploadingImage(true)
+      try {
+        const uploadedUrl = await adminApi.uploadMediaFile(imageFile)
+        finalImageUrl = uploadedUrl
+      } catch (uploadErr: any) {
+        setError(uploadErr.message || 'Failed to upload category image.')
+        setSaving(false)
+        setUploadingImage(false)
+        return
+      } finally {
+        setUploadingImage(false)
+      }
+    }
+
+    // 2. Strict guard: Under no circumstances save a local blob: address
+    if (finalImageUrl.startsWith('blob:')) {
+      setError('Image preview (blob:) cannot be saved. Please re-select the image file or enter a valid URL.')
+      setSaving(false)
+      return
+    }
+
+    // 3. Save category to backend
     try {
       const payload = {
         ...draft,
@@ -135,12 +200,17 @@ export default function CategoriesPage() {
         descriptionMr: draft.descriptionMr.trim(),
         description: draft.descriptionEn.trim() || draft.description.trim(),
         slug,
+        image: finalImageUrl,
       }
       if (draft.id) {
         await adminApi.categories.update(draft.id, payload)
       } else {
         await adminApi.categories.create(payload)
       }
+
+      revokePreviewIfBlob(imagePreview)
+      setImagePreview('')
+      setImageFile(null)
       setDraft(null)
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
@@ -165,19 +235,21 @@ export default function CategoriesPage() {
     }
   }
 
+  const displayedPreview = imagePreview || draft?.image || ''
+
   return (
     <AdminLayout
       title="Categories"
       subtitle="Organize the catalog so customers can discover plants easily."
       action={
-        <button onClick={() => setDraft({ ...blank })} className={buttonClass}>
+        <button onClick={handleOpenAddCategory} className={buttonClass}>
           <Plus className="size-4" /> Add Category
         </button>
       }
     >
       {saved && <SuccessFeedback>Category changes saved successfully to backend.</SuccessFeedback>}
 
-      {error && (
+      {error && !draft && (
         <div className="mb-6 flex items-center gap-3 rounded-2xl bg-destructive/10 p-4 text-sm font-medium text-destructive">
           <AlertCircle className="size-5 shrink-0" />
           <span>{error}</span>
@@ -222,19 +294,7 @@ export default function CategoriesPage() {
                       </Link>
                       <div className="flex gap-2">
                         <button
-                          onClick={() => setDraft({
-                            id: category.id,
-                            nameEn: category.nameEn || category.name || '',
-                            nameMr: category.nameMr || '',
-                            name: category.name || category.nameEn || '',
-                            slug: category.slug,
-                            descriptionEn: category.descriptionEn || category.description || '',
-                            descriptionMr: category.descriptionMr || '',
-                            description: category.description || category.descriptionEn || '',
-                            image: category.image || '',
-                            status: category.status,
-                            productCount: category.productCount,
-                          })}
+                          onClick={() => handleOpenEditCategory(category)}
                           className="rounded-lg p-2 hover:bg-muted"
                           aria-label={`Edit ${category.name}`}
                         >
@@ -262,10 +322,18 @@ export default function CategoriesPage() {
           <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl bg-card p-6 shadow-xl">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-bold">{draft.id ? 'Edit Category' : 'Add Category'}</h2>
-              <button onClick={() => setDraft(null)} aria-label="Close">
+              <button onClick={closeDraftModal} aria-label="Close" disabled={saving}>
                 <X />
               </button>
             </div>
+
+            {error && (
+              <div className="mt-4 flex items-center gap-3 rounded-xl bg-destructive/10 p-3 text-sm font-medium text-destructive">
+                <AlertCircle className="size-4 shrink-0" />
+                <span>{error}</span>
+              </div>
+            )}
+
             <div className="mt-5 grid gap-4">
               {/* ENGLISH SECTION */}
               <div className="rounded-xl border border-border/80 bg-muted/30 p-3.5">
@@ -335,48 +403,85 @@ export default function CategoriesPage() {
                   className="rounded-xl border bg-background px-3 py-2.5 font-normal"
                 />
               </label>
+
               <div className="grid gap-2 text-sm font-medium">
                 <label>Category Image</label>
-                {draft.image && (
+                {displayedPreview && (
                   <div className="relative aspect-video max-h-48 overflow-hidden rounded-xl border bg-muted">
-                    <img src={formatMediaUrl(draft.image)} alt="Category preview" className="h-full w-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none' }} />
+                    <img
+                      src={formatMediaUrl(displayedPreview)}
+                      alt="Category preview"
+                      className="h-full w-full object-cover"
+                      onError={(e) => { e.currentTarget.style.display = 'none' }}
+                    />
                     <button
                       type="button"
                       onClick={handleClearImage}
                       className="absolute right-2 top-2 z-20 rounded-full bg-background/80 p-1.5 text-foreground hover:bg-background hover:text-destructive transition shadow-xs"
                       aria-label="Remove category image"
                       title="Remove image"
+                      disabled={saving}
                     >
                       <X className="size-4" />
                     </button>
                   </div>
                 )}
+
                 <label className="cursor-pointer rounded-xl border bg-muted px-4 py-2.5 text-xs font-semibold hover:bg-muted/80 inline-flex items-center justify-center gap-2">
                   <UploadCloud className="size-4 text-primary" />
-                  {uploadingImage ? 'Uploading image...' : 'Choose Local Image File'}
+                  {saving && uploadingImage ? 'Uploading image...' : 'Choose Local Image File'}
                   <input
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
-                    disabled={uploadingImage}
+                    disabled={saving}
                     className="hidden"
                     onChange={(e) => {
                       const file = e.target.files?.[0]
                       if (file) handleCategoryImageFileSelect(file)
+                      e.target.value = ''
                     }}
                   />
                 </label>
+
+                {imageFile && (
+                  <div className="flex items-center justify-between text-xs text-muted-foreground bg-muted/40 rounded-lg px-2.5 py-1.5">
+                    <span>File: <strong className="text-foreground">{imageFile.name}</strong> (will upload when saved)</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        revokePreviewIfBlob(imagePreview)
+                        setImageFile(null)
+                        setImagePreview(draft.image || '')
+                      }}
+                      disabled={saving}
+                      className="text-destructive hover:underline text-xs"
+                    >
+                      Cancel file
+                    </button>
+                  </div>
+                )}
+
                 <input
                   value={draft.image}
-                  onChange={(e) => setDraft({ ...draft, image: e.target.value })}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    revokePreviewIfBlob(imagePreview)
+                    setImageFile(null)
+                    setImagePreview(val)
+                    setDraft({ ...draft, image: val })
+                  }}
+                  disabled={saving}
                   placeholder="Or enter image URL (https://… or /uploads/…)"
                   className="rounded-xl border bg-background px-3 py-2.5 text-xs font-normal"
                 />
               </div>
+
               <label className="flex items-center justify-between rounded-xl border px-3 py-3 text-sm font-medium">
                 Active
                 <select
                   value={draft.status}
                   onChange={(e) => setDraft({ ...draft, status: e.target.value as Draft['status'] })}
+                  disabled={saving}
                   className="rounded-lg border bg-background px-2 py-1"
                 >
                   <option value="ACTIVE">Active</option>
@@ -384,12 +489,13 @@ export default function CategoriesPage() {
                 </select>
               </label>
             </div>
+
             <div className="mt-6 flex justify-end gap-3">
-              <button onClick={() => setDraft(null)} className="rounded-xl border px-4 py-2.5 text-sm font-semibold" disabled={saving}>
+              <button onClick={closeDraftModal} className="rounded-xl border px-4 py-2.5 text-sm font-semibold" disabled={saving}>
                 Cancel
               </button>
               <button onClick={save} className={buttonClass} disabled={saving}>
-                {saving ? 'Saving...' : 'Save category'}
+                {saving ? (uploadingImage ? 'Uploading image...' : 'Saving...') : 'Save category'}
               </button>
             </div>
           </div>
