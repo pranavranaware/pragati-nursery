@@ -49,7 +49,7 @@ export function ProductForm({ product, initialCategory, returnTo = '/admin/produ
   const [uploadingIndex, setUploadingIndex] = useState<number | null>(null)
   const [uploadingVideo, setUploadingVideo] = useState(false)
 
-  const [categories, setCategories] = useState<AdminCategory[]>(adminCategories)
+  const [categories, setCategories] = useState<AdminCategory[]>([])
 
   useEffect(() => {
     adminApi.categories.list().then((list) => {
@@ -269,7 +269,7 @@ export function ProductForm({ product, initialCategory, returnTo = '/admin/produ
       c.name.toLowerCase() === category.toLowerCase() ||
       String(c.id) === String(category)
     )
-    const categoryId = matchedCategory ? matchedCategory.id : 1
+    if (!matchedCategory) { setError('Please choose a valid category. If the list is still loading, wait a moment and try again.'); return } const categoryId = matchedCategory.id
     const categoryName = matchedCategory ? matchedCategory.name : category
 
     const generatedSku = sku.trim() || product?.sku || `PN-${Date.now().toString().slice(-6)}`
