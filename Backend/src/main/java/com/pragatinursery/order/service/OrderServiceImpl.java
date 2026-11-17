@@ -68,7 +68,7 @@ public class OrderServiceImpl implements OrderService {
         }
 
         List<ItemDetail> itemsToProcess = new ArrayList<>();
-        if (user != null) {
+        if (user != null && (request.getItems() == null || request.getItems().isEmpty())) {
             // 1. Verify Cart
             Cart cart = cartRepository.findByUserId(user.getId())
                     .orElseThrow(() -> new BadRequestException("Your cart is empty. Please add items before checking out."));

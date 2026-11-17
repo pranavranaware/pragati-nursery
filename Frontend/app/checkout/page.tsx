@@ -272,7 +272,7 @@ export default function CheckoutPage() {
             setBusy(false)
             return
           }
-          orderRes = await createRealOrder({ addressId: targetAddressId, paymentMethod: values.paymentMethod })
+          orderRes = await createRealOrder({ addressId: targetAddressId, paymentMethod: values.paymentMethod, items: items.map((i) => ({ productId: i.product.id, quantity: i.quantity })) })
         } else {
           const guestItems = items.map((i) => ({
             productId: i.product.id,
