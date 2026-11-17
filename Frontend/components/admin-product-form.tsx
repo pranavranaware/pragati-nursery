@@ -57,7 +57,7 @@ export function ProductForm({ product, initialCategory, returnTo = '/admin/produ
         setCategories(list)
         if (initialCategory) {
           const matched = list.find((c) =>
-            c.slug.toLowerCase() === initialCategory.toLowerCase() ||
+            c.slug.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '') === initialCategory.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '') || c.slug.toLowerCase() === initialCategory.toLowerCase() ||
             c.name.toLowerCase() === initialCategory.toLowerCase() ||
             String(c.id) === String(initialCategory)
           )
@@ -265,7 +265,7 @@ export function ProductForm({ product, initialCategory, returnTo = '/admin/produ
     }
 
     const matchedCategory = categories.find((c) =>
-      c.slug.toLowerCase() === category.toLowerCase() ||
+      c.slug.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '') === category.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '') || c.slug.toLowerCase() === category.toLowerCase() ||
       c.name.toLowerCase() === category.toLowerCase() ||
       String(c.id) === String(category)
     )
